@@ -108,14 +108,29 @@ AI コーディングエージェントは単体でも強力ですが、**得意
 ### 前提条件
 
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (CLI) がインストール済み
-- [Cursor](https://cursor.sh/) がインストール済み
-- `cursor-agent` CLI が `~/.local/bin/cursor-agent` に配置済み
+- [Cursor](https://cursor.sh/) がインストール済み（有料プラン）
+- `cursor-agent` CLI（Cursor 公式 CLI / [ACP](https://agentcommunicationprotocol.dev/) 対応）
 - Python 3.10+
+
+### 0. cursor-agent CLI のインストール
+
+```bash
+# Cursor 公式インストーラー
+curl https://cursor.com/install -fsSL | bash
+
+# ログイン（Cursor アカウントで認証）
+cursor-agent login
+
+# 動作確認
+cursor-agent status
+```
+
+> `~/.local/bin/cursor-agent` にインストールされます。詳細: [Cursor CLI Docs](https://cursor.com/docs/cli/installation)
 
 ### 1. CursorACP ブリッジを配置
 
 ```bash
-git clone https://github.com/<your-username>/claude-cursor-orchestration.git
+git clone https://github.com/bunta-ishiwata/claude-cursor-orchestration.git
 cd claude-cursor-orchestration
 ```
 
@@ -331,7 +346,7 @@ Claude Code の Hook 機構を使って、**ユーザーが意識することな
 | **セットアップの複雑さ** | Claude Code + Cursor + cursor-agent CLI + Hook + Skill の設定が必要。初期構築コストが高い |
 | **コスト** | 2つのAIサービスのAPI利用料が発生。設計レビュー（Claude）+ 実装（Cursor）で単体より高額 |
 | **デバッグの難しさ** | 問題発生時、Claude Code 側か Cursor Agent 側かの切り分けが必要。ログを追う手間 |
-| **cursor-agent CLI への依存** | Cursor の非公式CLIに依存。バージョンアップで破壊的変更の可能性あり |
+| **cursor-agent CLI への依存** | Cursor 公式 CLI（ACP 対応）に依存。バージョンアップで破壊的変更の可能性あり |
 | **並列実行のファイル競合** | 同じファイルを複数タスクが同時編集するとコンフリクト。事前のタスク分割設計が重要 |
 | **A2A の不確実性** | 質問検出が正規表現ベース。複雑な質問や想定外の形式を見逃す可能性 |
 | **レイテンシ** | エージェント間の通信（CLI呼び出し + JSONL パース）にオーバーヘッド。小さなタスクでは割に合わない |
