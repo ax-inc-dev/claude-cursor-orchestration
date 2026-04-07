@@ -1,0 +1,102 @@
+---
+description: 全プロジェクト共通—Superpowers・開発ゲート・4並列レビュー（ホームの正本パス）
+alwaysApply: true
+---
+
+# エージェント運用（グローバル）
+
+CLI はユーザーに丸投げせず、**チャット上で**フェーズを進める。必要ならエージェントがターミナルを実行する。
+
+## Superpowers（ホーム正本）
+
+- **本体**: `~/.cursor/superpowers`（obra/superpowers）
+- **スキル**: `~/.cursor/skills/<スキル名>/SKILL.md`
+- **更新**: `git -C ~/.cursor/superpowers pull --ff-only`
+
+**ワークスペースに `.cursor/superpowers` がある場合は**、そちらを優先してよい（リポ独自の固定版）。
+
+作業に入る前に当てはまりそうなスキルがあれば **必ず `Read` で `SKILL.md` 全文**を読む。優先度は **ユーザーの明示指示 ＞ Superpowers スキル ＞ デフォルト**。
+
+| 状況 | 読むファイル（グローバル） |
+|------|---------------------------|
+| 会話の最初 | `~/.cursor/skills/using-superpowers/SKILL.md` |
+| 仕様が未確定 | `~/.cursor/skills/brainstorming/SKILL.md` |
+| 実装計画 | `~/.cursor/skills/writing-plans/SKILL.md` |
+| 計画の実行 | `executing-plans` または `subagent-driven-development` |
+| 実装中 | `test-driven-development` |
+| バグ調査 | `systematic-debugging` |
+| レビュー依頼 | `requesting-code-review` |
+| 並列エージェント | `dispatching-parallel-agents` |
+| ブランチ終了 | `finishing-a-development-branch` |
+| **プロダクトUI/UX + ユーザーファースト（アプリ・ダッシュ・ツール）** | 先に **`~/.cursor/skills/user-first-product-design/SKILL.md`** → **`~/.cursor/skills/product-ui-ux-design/SKILL.md`**。設計のみ: **`/product-ui-ux-designer`**（`~/.cursor/agents/product-ui-ux-designer.md`）。成果物: **`docs/ux-design/`**。 |
+| **Figma MCP でデザイン完結（キャンバス・トークン・DS）** | **`user-first-product-design`** → **`figma-mcp-design-orchestrator`** → **`/figma-ux-spec-lead`**（`docs/design/`）→ **`/figma-canvas-builder`**（`use_figma` 前に **Glob+Read `figma-use` SKILL**）。テンプレ: **`~/.cursor/templates/docs-design/`**。MCP server 例: **`plugin-figma-figma`**。 |
+| **DESIGN.md / Stitch 形式・VoltAgent awesome-design-md** | **必ず** **`~/.cursor/skills/design-md-reference/SKILL.md`** を全文 `Read`。プリセット収集の Git 正本: **`https://github.com/VoltAgent/awesome-design-md.git`**（clone 後は `design-md/<サイト名>/DESIGN.md` ほか `preview.html`）。作業リポに **コピーした `DESIGN.md`** を画面トークンの契約として Read し、**`tailwind-product-ui-conventions`** と突き合わせてからフロント実装。Figma との優先はユーザー指示に従う。 |
+| LP・コーポレート・サイト制作（全PJ） | `site-build-orchestrator` → **`/site-design-planner`** →（**`計画承認`**）→ **`/site-frontend-implementer`** → **`/site-quality-auditor`** →（**`E2E実行`**）→ **`/site-e2e-runner`**（Playwright CLI / MCP `user-playwright` は `site-e2e-playwright` SKILL）。正本: `~/.cursor/skills/`・`~/.cursor/agents/`。テンプレ: `~/.cursor/templates/docs-site/` |
+
+## フロントエンド実装の順序（全PJ・必須）
+
+**顧客／ユーザーファーストの体験・UI/UX 設計を先に固定し、その後に内部構造（ディレクトリ・状態・API 割り当て）を決める。** 逆順（フォルダ構成や「とりあえずコンポーネント」から入って UI を後付け）は避ける。
+
+| 種類 | 先にやること（スキル／Subagent） | その後にやること |
+|------|----------------------------------|------------------|
+| **アプリ・ダッシュ・ツール** | `user-first-product-design` → `product-ui-ux-design` → 必要なら **`/product-ui-ux-designer`**（`docs/ux-design/`）。Figma なら `figma-ux-spec-lead` → `figma-canvas-builder`。**`DESIGN.md`（自前または [awesome-design-md](https://github.com/VoltAgent/awesome-design-md) プリセット）** があるなら **`design-md-reference` を Read したうえで** 当該 `DESIGN.md` を Read。 | ルーティング詳細・グローバル状態・フォルダ分割・データ取得の最適化 |
+| **LP・コーポ・マーケサイト** | `site-build-orchestrator` → **`/site-design-planner`** → ユーザーの **`計画承認`** → **`/site-frontend-implementer`** | 同上（`docs/site/*` が画面の契約） |
+
+親エージェントは **フロントを触る依頼**で、上記の設計フェーズを飛ばしていないか必ず確認する。未設計なら **先に Subagent または該当 SKILL を Read・委譲**してから実装に入る。
+
+サブエージェントに任務だけ渡す場合は、各 SKILL 内の `<SUBAGENT-STOP>` に従う。
+
+## プロダクト UI/UX（グローバル Subagent・サイト以外）
+
+- **ユーザーファースト正本**: **`~/.cursor/skills/user-first-product-design/SKILL.md`**（すべてのアプリ UI の出発点）。
+- **設計のみ**（実装禁止）: **`product-ui-ux-designer`**（`~/.cursor/agents/product-ui-ux-designer.md`）。正本: **`~/.cursor/skills/product-ui-ux-design/SKILL.md`**（§0 で user-first を統合済み）。
+
+## Figma MCP（グローバル Subagent）
+
+- **UX 仕様のみ**（Figma 触らない）: **`figma-ux-spec-lead`**（`~/.cursor/agents/figma-ux-spec-lead.md`）→ `docs/design/`。
+- **キャンバス実行**（`use_figma` / `search_design_system` / 必要なら `generate_figma_design`）: **`figma-canvas-builder`**（`~/.cursor/agents/figma-canvas-builder.md`）。**`use_figma` の直前に `figma-use` SKILL を必ず Read**（プラグインキャッシュ内を Glob）。
+- オーケストレーター: **`~/.cursor/skills/figma-mcp-design-orchestrator/SKILL.md`**。
+
+## サイト制作ワークフロー（グローバル Subagent）
+
+- **設計のみ**（実装禁止）: ユーザー Subagent **`site-design-planner`**（`~/.cursor/agents/site-design-planner.md`）。`/site-design-planner` で明示起動可。
+- **実装**（**`計画承認` 後のみ**）: **`site-frontend-implementer`**（`~/.cursor/agents/site-frontend-implementer.md`）。
+- **監査**（読み取り中心）: **`site-quality-auditor`**（`~/.cursor/agents/site-quality-auditor.md`）。
+- **E2E**（**`E2E実行`**）: **`site-e2e-runner`**（`~/.cursor/agents/site-e2e-runner.md`）。手順: **`~/.cursor/skills/site-e2e-playwright/SKILL.md`**（Cursor エージェントのターミナル・必要なら MCP **`user-playwright`**）。
+- 手順の土台は常に **`~/.cursor/skills/site-build-orchestrator/SKILL.md`** を Read すること。
+
+## レビュー用スキル（グローバル）
+
+`~/.cursor/skills/review-*/SKILL.md`
+
+## チャット合図（ユーザー）
+
+| 合図 | 意味 |
+|------|------|
+| `計画承認` | 承認済みとして設計・実装へ |
+| `実装完了` | 設計〜自動テストまで終了。以降は静的チェックから |
+| `静的OK` | lint / typecheck 等クリア |
+| `レビュー回開始` | **4並列**レビュー1ラウンド（アプリ / セキュリティ / QA / アーキ） |
+| `レビュー全クリア` | 当該ラウンド指摘ゼロ |
+| `E2E実行` | ブラウザ E2E |
+| `PR作成` | 差分説明付き PR |
+
+## ゲート順（計画承認後）
+
+1. 設計 → 2. テスト実装 → 3. プロダクト実装 → 4. 静的チェック → 5. 自動テスト
+
+その後:
+
+6. **ローカルレビュー最低 3 ラウンド**。各ラウンド **4 並列**で `review-app-product` / `review-security` / `review-qa` / `review-architecture`。必要に応じ `review-frontend` / `review-backend` / `review-infra` / `review-test`。
+
+7. 軽微以外は**すべて対応** → 対応後 **レビュー回数リセット**し **再度 3 ラウンド**（ゼロになるまで）。
+
+8. **E2E** → 問題なければ **PR**。問題あれば **静的チェックからやり直し**、レビュー回数もリセット。
+
+## PR 説明に含めること
+
+計画時との差分、指摘への対応、対応不要と判断した点と理由。
+
+## マージ判断
+
+レビュー観点が揃った成果物を前提とし、**コードはほぼ見ずにマージ可**。残課題は Issue 化または再開発ループ。

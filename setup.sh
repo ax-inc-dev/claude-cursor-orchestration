@@ -23,6 +23,27 @@ ok()   { echo -e "${GREEN}[setup]${NC} $*"; }
 warn() { echo -e "${YELLOW}[setup]${NC} $*"; }
 err()  { echo -e "${RED}[setup]${NC} $*"; }
 
+# Copy a file into place; prompt before overwriting an existing destination.
+install_file() {
+  local src="$1" dest="$2"
+  if [ ! -f "$src" ]; then
+    warn "Missing source: $src"
+    return 1
+  fi
+  if [ -e "$dest" ]; then
+    warn "Already exists: $dest"
+    read -p "  Overwrite? (y/N) " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+      log "Skipping: $dest"
+      return 0
+    fi
+  fi
+  mkdir -p "$(dirname "$dest")"
+  cp "$src" "$dest"
+  ok "Installed: $dest"
+}
+
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 CLAUDE_DIR="$HOME/.claude"
 HOOKS_DIR="$HOME/.claude-code/hooks"
@@ -272,6 +293,35 @@ chmod +x "$REPO_DIR/hooks/"*.sh 2>/dev/null || true
 ok "Permissions set"
 
 # ─────────────────────────────────────────────────────
+# Step 6: Cursor skills, subagents (agents), and rules
+# ─────────────────────────────────────────────────────
+log "Installing Cursor-side configuration (skills, agents, rules)..."
+
+CURSOR_CFG="$HOME/.cursor"
+CURSOR_SKILLS="$CURSOR_CFG/skills"
+CURSOR_AGENTS="$CURSOR_CFG/agents"
+CURSOR_RULES="$CURSOR_CFG/rules"
+BUNDLE_DIR="$REPO_DIR/cursor-config"
+
+if [ ! -d "$BUNDLE_DIR/skills" ]; then
+  warn "cursor-config/skills not found — skip Cursor bundle (clone complete repo?)"
+else
+  mkdir -p "$CURSOR_SKILLS" "$CURSOR_AGENTS" "$CURSOR_RULES"
+  for skill_path in "$BUNDLE_DIR/skills"/*; do
+    [ -d "$skill_path" ] || continue
+    sname="$(basename "$skill_path")"
+    install_file "$skill_path/SKILL.md" "$CURSOR_SKILLS/$sname/SKILL.md" || true
+  done
+  for agent_file in "$BUNDLE_DIR/agents"/*.md; do
+    [ -f "$agent_file" ] || continue
+    install_file "$agent_file" "$CURSOR_AGENTS/$(basename "$agent_file")" || true
+  done
+  install_file "$BUNDLE_DIR/rules/CURSOR_GLOBAL_RULES.md" "$CURSOR_CFG/CURSOR_GLOBAL_RULES.md" || true
+  install_file "$BUNDLE_DIR/rules/global-agent-workflow.mdc" "$CURSOR_RULES/global-agent-workflow.mdc" || true
+  ok "Cursor configuration step finished (see $BUNDLE_DIR/README.md)"
+fi
+
+# ─────────────────────────────────────────────────────
 # Done
 # ─────────────────────────────────────────────────────
 echo ""
@@ -283,6 +333,7 @@ echo "  Installed:"
 echo "    Hook:    $HOOK_FILE"
 echo "    Skill:   $SKILL_FILE"
 echo "    Bridge:  $REPO_DIR/src/cursor_dispatch.py"
+echo "    Cursor:  $CURSOR_CFG (skills / agents / rules from cursor-config/ when present)"
 echo ""
 echo "  What happens now:"
 echo "    1. Open Claude Code in any project"
