@@ -1,0 +1,13 @@
+{
+  "name": "claude-cursor-orchestration",
+  "owner": {
+    "name": "ax-inc-dev"
+  },
+  "plugins": [
+    {
+      "name": "claude-cursor-orchestration",
+      "source": ".",
+      "description": "Claude Code + Cursor Agent orchestration via ACP bridge"
+    }
+  ]
+}
