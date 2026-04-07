@@ -45,7 +45,7 @@ Claude Codeから以下の指示書を受け取る:
 ```bash
 # ステップ1: キーワード検索して画像情報を取得
 curl -s "https://api.unsplash.com/search/photos?query=KEYWORD&per_page=1&orientation=landscape" \
-  -H "Authorization: Client-ID Mmiuocys6MRL0AAKZEhwarpoAQ9Rp7RFf9VOG7hG8-U" \
+  -H "Authorization: Client-ID <YOUR_UNSPLASH_ACCESS_KEY>" \
   | python3 -c "
 import sys,json
 r=json.load(sys.stdin)
@@ -59,7 +59,7 @@ if r['results']:
 
 # ステップ2: download endpointを必ず叩く（Unsplashガイドライン必須）
 curl -s "DOWNLOAD_LOCATION_URL" \
-  -H "Authorization: Client-ID Mmiuocys6MRL0AAKZEhwarpoAQ9Rp7RFf9VOG7hG8-U" > /dev/null
+  -H "Authorization: Client-ID <YOUR_UNSPLASH_ACCESS_KEY>" > /dev/null
 ```
 
 **Unsplashガイドライン準拠（必須）:**
