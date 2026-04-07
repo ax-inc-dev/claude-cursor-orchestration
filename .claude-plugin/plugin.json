@@ -1,0 +1,9 @@
+{
+  "name": "claude-cursor-orchestration",
+  "version": "1.0.0",
+  "description": "Claude Code + Cursor Agent orchestration system. Delegates coding tasks to Cursor Agent via ACP bridge with Phase 0-8 pipeline.",
+  "author": {
+    "name": "bunta-ishiwata"
+  },
+  "homepage": "https://github.com/bunta-ishiwata/claude-cursor-orchestration"
+}

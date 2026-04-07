@@ -1,0 +1,13 @@
+{
+  "name": "claude-cursor-orchestration",
+  "owner": {
+    "name": "bunta-ishiwata"
+  },
+  "plugins": [
+    {
+      "name": "claude-cursor-orchestration",
+      "source": ".",
+      "description": "Claude Code + Cursor Agent orchestration via ACP bridge"
+    }
+  ]
+}
