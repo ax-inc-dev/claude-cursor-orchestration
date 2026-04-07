@@ -18,8 +18,10 @@
 ## 目次
 
 - [なぜこの構成なのか](#なぜこの構成なのか)
+- [コスト・速度・コンテキストの最適化](#コスト速度コンテキストの最適化)
 - [アーキテクチャ](#アーキテクチャ)
-- [セットアップ](#セットアップ)
+- [セットアップ（自動）](#セットアップ自動)
+- [Cursor エコシステムとの連携](#cursor-エコシステムとの連携)
 - [パイプライン（Phase 0-8）](#パイプラインphase-0-8)
 - [CursorACP ブリッジの3つのモード](#cursoracp-ブリッジの3つのモード)
 - [自動委譲の仕組み（Hook）](#自動委譲の仕組みhook)
@@ -44,6 +46,74 @@ AI コーディングエージェントは単体でも強力ですが、**得意
 | 並列タスク実行 | ★★★★ | ★★★★★ |
 
 **一つのエージェントにすべてを任せる** のではなく、**それぞれの強みを活かして協調** させることで、より高品質なアウトプットを高速に得られます。
+
+---
+
+## コスト・速度・コンテキストの最適化
+
+この構成の最大のメリットの一つは、**Claude Code (Opus) のコンテキストウィンドウを劇的に節約** できることです。
+
+### コンテキスト削減効果
+
+通常、Claude Code 単体で開発する場合：
+
+```
+ユーザー指示       →  コード読み取り  →  コード生成  →  テスト実行  →  修正
+       ↓                  ↓                ↓              ↓           ↓
+  Opus コンテキスト: [全部ここに積まれる ─────────────────────────────── 200K tokens]
+```
+
+CursorACP 構成の場合：
+
+```
+  Claude Code (Opus):  [設計] ─── [指示出し] ─── [結果レビュー]  → ~20-40K tokens
+  Cursor Agent:        ──────── [実装の全詳細] ──────────────────  → Cursor側で処理
+```
+
+| シナリオ | Opus 単体 | CursorACP 構成 | 削減率 |
+|---------|-----------|---------------|--------|
+| 小規模機能追加 | ~50K tokens | ~15K tokens | **70%** |
+| 中規模機能（3ファイル） | ~120K tokens | ~30K tokens | **75%** |
+| 大規模開発（10+ファイル） | ~180K tokens（上限に迫る） | ~40K tokens | **78%** |
+
+**なぜこれほど削減できるのか：**
+
+1. **ファイル内容を Opus が読まない** — Cursor Agent が LSP/IDE 経由でファイルを直接操作するので、Opus のコンテキストにコード全文が載らない
+2. **生成コードが Opus を通らない** — コード生成は Cursor 側で完結。Opus には「成功/失敗」と要約だけが返る
+3. **テスト実行ログが Opus を通らない** — テスト出力も Cursor 側で処理される
+
+### コスト比較
+
+| 項目 | Claude Code 単体 | CursorACP 構成 |
+|------|-----------------|---------------|
+| **Opus API** | ~$15/M input, ~$75/M output | 設計・レビューのみ → **1/3〜1/4 に削減** |
+| **Cursor** | 使わない | Pro $20/月（定額） |
+| **Composer 2 Fast** | — | Cursor Pro に含まれる（追加課金なし） |
+| **合計（中規模開発）** | Opus だけで $3-5/タスク | Opus $0.8-1.5 + Cursor $20/月 |
+
+**ポイント：** Cursor の Composer 2 Fast は **Cursor Pro ($20/月) に含まれる定額制** なので、実装をいくら投げてもコストは変わりません。Opus の従量課金を設計・レビューだけに絞ることで、全体コストを大幅に抑えられます。
+
+### Opus の自律性 + Cursor の速度 = いいとこ取り
+
+```
+┌─── Opus の強み（そのまま活かす）─────────────────┐
+│ - 200K コンテキストでプロジェクト全体を俯瞰      │
+│ - 複雑な設計判断・アーキテクチャ決定              │
+│ - 自律的にタスク分割・優先順位付け                │
+│ - コードレビューで潜在バグ・セキュリティ問題発見  │
+│ - git/GCP/インフラを直接操作                      │
+└─────────────────────────────────────────────────┘
+         ↕ cursor_dispatch.py（指示と結果だけ）
+┌─── Cursor の強み（委譲して活かす）──────────────┐
+│ - Composer 2 Fast: 超高速コード生成（定額制）    │
+│ - LSP統合: 型チェック・インポート解決が正確      │
+│ - IDE統合: リアルタイムのシンタックスエラー検出  │
+│ - 並列実行: 複数エージェントが同時にコード生成   │
+│ - $20/月定額: 何回呼んでも追加コストなし         │
+└─────────────────────────────────────────────────┘
+```
+
+Opus の 200K コンテキストを **設計と判断** に使い、Cursor の高速・安価な実装力で **コード生成** を行う。これが「いいとこ取り」の本質です。
 
 ---
 
@@ -103,83 +173,105 @@ AI コーディングエージェントは単体でも強力ですが、**得意
 
 ---
 
-## セットアップ
+## セットアップ（自動）
 
 ### 前提条件
 
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (CLI) がインストール済み
-- [Cursor](https://cursor.sh/) がインストール済み（有料プラン）
-- `cursor-agent` CLI（Cursor 公式 CLI / [ACP](https://agentcommunicationprotocol.dev/) 対応）
+- [Cursor](https://cursor.sh/) Pro/Business プラン（$20/月〜）
 - Python 3.10+
 
-### 0. cursor-agent CLI のインストール
+### ワンコマンドセットアップ
 
 ```bash
-# Cursor 公式インストーラー
+# 1. cursor-agent CLI をインストール（まだの場合）
 curl https://cursor.com/install -fsSL | bash
-
-# ログイン（Cursor アカウントで認証）
 cursor-agent login
 
-# 動作確認
-cursor-agent status
-```
-
-> `~/.local/bin/cursor-agent` にインストールされます。詳細: [Cursor CLI Docs](https://cursor.com/docs/cli/installation)
-
-### 1. CursorACP ブリッジを配置
-
-```bash
+# 2. このリポジトリを clone して setup.sh を実行
 git clone https://github.com/bunta-ishiwata/claude-cursor-orchestration.git
 cd claude-cursor-orchestration
+./setup.sh
 ```
 
-### 2. Claude Code の Hook を設定
+`setup.sh` が自動的に以下を行います：
+- cursor-agent / Claude Code / Python の存在確認
+- Hook スクリプトの配置（`~/.claude-code/hooks/cursor-delegate.sh`）
+- `~/.claude/settings.json` への Hook 登録（既存設定を壊さずマージ）
+- `/app-development` スキルの配置（`~/.claude/commands/app-development.md`）
 
-`~/.claude/settings.json` に以下を追加：
-
-```json
-{
-  "hooks": {
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/path/to/hooks/cursor-delegate.sh"
-          }
-        ]
-      }
-    ]
-  }
-}
+**Claude Code に依頼する場合：**
 ```
+> このリポジトリの setup.sh を実行して
+```
+Claude Code が自分でスクリプトを読んで実行してくれます。
 
-### 3. Hook スクリプトを配置
+### 手動セットアップ
+
+自動セットアップがうまくいかない場合は [docs/skill-example.md](docs/skill-example.md) を参照。
+
+---
+
+## Cursor エコシステムとの連携
+
+このシステムは Cursor の豊富なエコシステムを活用しています。
+
+### cursor-agent CLI（公式）
+
+[Cursor 公式 CLI](https://cursor.com/docs/cli/overview)。ターミナルから Cursor の AI エージェントを呼び出せます。
 
 ```bash
-#!/bin/bash
-# cursor-delegate.sh
-# cursor-agent CLI が存在する場合のみ委譲指示を注入
-
-CURSOR_BIN="${HOME}/.local/bin/cursor-agent"
-if [ ! -x "$CURSOR_BIN" ]; then
-  exit 0
-fi
-
-cat <<'EOF'
-{
-  "hookSpecificOutput": {
-    "hookEventName": "UserPromptSubmit",
-    "additionalContext": "CURSOR AGENT DELEGATION ACTIVE: When this task involves writing, editing, or generating code, you MUST use the /app-development skill to orchestrate the full development flow. This skill dispatches coding work to Cursor Agent via CursorACP."
-  }
-}
-EOF
+# 3つのモード
+cursor-agent "Fix the bug"                    # Agent モード（デフォルト）: ファイル編集・コマンド実行
+cursor-agent --mode plan "How to refactor?"   # Plan モード: 設計のみ、コード変更なし
+cursor-agent --mode ask "Explain this code"   # Ask モード: 読み取り専用分析
 ```
 
-### 4. App Development スキルを配置
+| 特徴 | 説明 |
+|------|------|
+| **Agent モード** | ファイル編集、ターミナル実行、マルチファイル操作を自律的に実行 |
+| **Plan モード** | コード変更なしで設計・分析。CursorACP の Phase 1 で活用 |
+| **Ask モード** | 読み取り専用。コードの説明や調査に使用 |
+| **Cloud Handoff** | `&` プレフィックスでローカル→クラウドに移行。オフラインでも継続実行 |
+| **Session Resume** | `--resume <session_id>` で中断したセッションを再開。A2A ループの核心技術 |
 
-`~/.claude/commands/app-development.md` にスキル定義を配置します（[例](docs/skill-example.md)）。
+### ACP（Agent Client Protocol）
+
+[ACP](https://agentcommunicationprotocol.dev/) は JetBrains と Zed が策定した**オープン標準プロトコル**。AI エージェントとエディタの通信を標準化します。
+
+- Cursor は ACP を公式サポート → JetBrains IDE（IntelliJ, PyCharm 等）でも Cursor エージェントが動作
+- CursorACP はこの ACP 対応 CLI を介して Claude Code と Cursor を橋渡し
+
+### Cursor Agent（IDE 内蔵）
+
+Cursor 3 で全面刷新された**エージェントファースト**のインターフェース：
+
+- **マルチファイル編集** — プロジェクト全体を理解した上でファイル横断の変更
+- **並列エージェント** — 複数エージェントが同時に異なるリポジトリ/ワークツリーで作業
+- **Memory 機能** — 過去の実行から学習し、繰り返し使うほど精度向上
+- **MCP 対応** — 外部ツール（DB、API、ブラウザ等）を MCP 経由で利用可能
+
+### Cursor Skills / Superpowers
+
+Cursor は独自の **Skills** フレームワークを持ち、開発ワークフローを定義できます：
+
+- **Skills** — `~/.cursor/skills/` に配置する構造化ワークフロー定義。コンテキストに応じて自動トリガー
+  - レビュー系: セキュリティ、アーキテクチャ、フロントエンド、バックエンド
+  - 開発系: TDD、デバッグ、プランニング
+  - スキル自体の作成: `create-cursor-skill`
+
+- **[Superpowers](https://cursor.com/marketplace)** — Cursor プラグインマーケットプレイスで配布される開発フレームワーク
+  - スペック策定 → 計画 → TDD（RED-GREEN-REFACTOR）→ サブエージェント駆動開発
+  - `/add-plugin superpowers` で Cursor に追加可能
+
+### Cursor Plugin Marketplace
+
+Cursor 3 で追加された**プラグインマーケットプレイス**：
+- MCP サーバー、Skills、サブエージェントをワンクリックインストール
+- VS Code 拡張との互換性も維持（Open VSX Registry 経由）
+- チーム向けプライベートマーケットプレイスも構築可能
+
+> **Note:** CursorACP はこれらの Cursor エコシステムの上に構築されています。Cursor 側で Skills や Superpowers を設定しておくと、委譲されたタスクの品質がさらに向上します。
 
 ---
 
@@ -330,13 +422,15 @@ Claude Code の Hook 機構を使って、**ユーザーが意識することな
 
 | メリット | 説明 |
 |---------|------|
+| **Opus コンテキスト 70-80% 削減** | 実装の詳細が Opus のコンテキストを消費しない。設計とレビューだけに集中 → 200K トークンを有効活用 |
+| **コスト最適化** | 実装は Cursor Pro 定額（$20/月）に含まれる Composer 2 Fast で処理。Opus の従量課金を 1/3〜1/4 に削減 |
+| **Opus の自律性はそのまま** | 設計判断・タスク分割・優先順位付け・コードレビュー・デプロイ判断は全て Opus が自律的に実行 |
+| **Cursor の高速実装** | Composer 2 Fast は高速・LSP統合・型チェック連携。IDE の恩恵をフル活用したコード生成 |
 | **専門性の分離** | Claude Code は設計・レビュー、Cursor は実装に集中。それぞれの得意領域を最大活用 |
 | **並列実行による高速化** | 独立したタスクを複数の Cursor Agent で同時実行。3-4タスク並列で大幅な時間短縮 |
 | **品質の二重チェック** | Claude Code が設計、Cursor が実装、Claude Code がレビューという三段階で品質担保 |
-| **IDE 統合の恩恵** | Cursor Agent は LSP・型チェック・インポート解決などIDE機能をフル活用できる |
 | **フォールバック** | cursor-agent が未インストールなら Claude Code 単体で処理。環境に依存しない |
 | **A2A 対話** | エージェント間で自動的に質問→回答→再開。人間の介入なしに曖昧さを解決 |
-| **セッション管理** | session_id による中断・再開。長時間タスクも安全に管理 |
 | **完全なログ** | 全セッションの JSONL ログ。デバッグ・監査・改善に活用可能 |
 
 ### デメリット
@@ -373,6 +467,7 @@ Claude Code の Hook 機構を使って、**ユーザーが意識することな
 ```
 .
 ├── README.md                          # このファイル
+├── setup.sh                           # ワンコマンド自動セットアップ
 ├── src/
 │   ├── cursor_dispatch.py             # メインブリッジ（Single/Parallel/A2A）
 │   ├── orchestrator.sh                # Bash ラッパー（リアルタイム出力）
