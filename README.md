@@ -199,12 +199,24 @@ cd claude-cursor-orchestration
 - Hook スクリプトの配置（`~/.claude-code/hooks/cursor-delegate.sh`）
 - `~/.claude/settings.json` への Hook 登録（既存設定を壊さずマージ）
 - `/app-development` スキルの配置（`~/.claude/commands/app-development.md`）
+- Cursor 側設定の展開（Skills 20個、Agents 7個、Rules 2個 → `~/.cursor/`）
 
 **Claude Code に依頼する場合：**
 ```
 > このリポジトリの setup.sh を実行して
 ```
 Claude Code が自分でスクリプトを読んで実行してくれます。
+
+### Superpowers プラグイン（推奨）
+
+本システムの一部のワークフロー（`brainstorming`, `test-driven-development`, `subagent-driven-development` 等）は [Superpowers](https://github.com/obra/superpowers)（MIT ライセンスの OSS プラグイン）のスキルを参照しています。
+
+Cursor のチャットで以下を実行するとインストールできます：
+```
+/add-plugin superpowers
+```
+
+> Superpowers は別リポジトリで活発に更新されているため、本リポジトリには同梱せず Cursor のプラグイン管理に委ねています。インストールしなくてもオーケストレーション自体は動作しますが、TDD・サブエージェント駆動開発・ブレインストーミング等のワークフローがフルに機能します。
 
 ### 手動セットアップ
 
