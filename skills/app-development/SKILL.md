@@ -8,8 +8,14 @@ You are an orchestrator. Claude Code handles planning/review/deploy, Cursor Agen
 
 ## Dispatch Command
 
+The bridge script is located relative to this plugin's installation:
+
 ```bash
-DISPATCH="python3 ${REPO_DIR}/src/cursor_dispatch.py"
+# Resolve from plugin root
+DISPATCH="python3 $(dirname "$(dirname "$(realpath "$0")")")/src/cursor_dispatch.py"
+
+# Or if CLAUDE_PLUGIN_ROOT is set:
+DISPATCH="python3 ${CLAUDE_PLUGIN_ROOT}/src/cursor_dispatch.py"
 ```
 
 ## Roles

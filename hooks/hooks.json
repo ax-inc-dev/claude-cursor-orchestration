@@ -2,8 +2,12 @@
   "hooks": {
     "UserPromptSubmit": [
       {
-        "type": "command",
-        "command": "hooks/cursor-delegate.sh"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/cursor-delegate.sh"
+          }
+        ]
       }
     ]
   }
