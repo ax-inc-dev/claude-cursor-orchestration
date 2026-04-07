@@ -1,7 +1,7 @@
 {
   "name": "claude-cursor-orchestration",
   "owner": {
-    "name": "bunta-ishiwata"
+    "name": "ax-inc-dev"
   },
   "plugins": [
     {

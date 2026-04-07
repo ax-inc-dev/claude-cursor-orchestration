@@ -3,7 +3,7 @@
 # setup.sh - Claude Code + Cursor Agent Orchestration 自動セットアップ
 #
 # Usage:
-#   git clone https://github.com/bunta-ishiwata/claude-cursor-orchestration.git
+#   git clone https://github.com/ax-inc-dev/claude-cursor-orchestration.git
 #   cd claude-cursor-orchestration
 #   ./setup.sh
 #
