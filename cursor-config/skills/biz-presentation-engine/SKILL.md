@@ -324,8 +324,8 @@ body {
 .bg-cube { animation: cube-spin 40s linear infinite; }
 /* 背景画像オーバーレイ（Unsplash等） */
 .slide-bg-cover { position: relative; }
-.slide-bg-cover::before { content: ''; position: absolute; inset: 0; background-image: var(--bg-img); background-size: cover; background-position: center; opacity: var(--bg-opacity, 0.08); z-index: 0; }
-.slide-bg-cover > * { position: relative; z-index: 1; }
+.slide-bg-cover::before { content: ''; position: absolute; inset: 0; background-image: var(--bg-img); background-size: cover; background-position: center; opacity: var(--bg-opacity, 0.15); z-index: 0; }
+.slide-bg-cover > *:not(.section-label) { position: relative; z-index: 1; }
 
 /* --- アニメーション（14種+3D） --- */
 .fade-in { opacity: 0; transform: translateY(20px); transition: opacity 0.6s ease, transform 0.6s ease; }
