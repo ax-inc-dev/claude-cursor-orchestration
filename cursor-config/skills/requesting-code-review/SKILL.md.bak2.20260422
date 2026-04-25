@@ -1,0 +1,125 @@
+---
+name: requesting-code-review
+description: レビュー依頼者（作者）が PR パッケージを整え、差分定義・リスク・観点・環境を揃えて各 review-* スキルの共通出力契約に接続する。
+---
+
+## Purpose
+
+レビュー依頼側が **対象コミット・差分の定義・リスク仮説・見てほしい観点・環境** を揃え、レビュアーが `review-*` スキルの **同一 Output Contract** で応答できる入力を作る。
+
+## When to Use
+
+- タスク完了・マージ前・複雑バグ修正のあと
+- 並列で `review-app-product` … `review-test` を回す前の **依頼パケット** を作るとき
+- `subagent-driven-development` の各タスク後にレビューを挟むとき
+- 大きな diff でレビュアーが迷わないよう **ブリーフィング** が必要なとき
+- `requesting-code-review/code-reviewer.md` テンプレを埋める前に品質ゲートとする
+
+## Review Checklist — CONCRETE items (author prep / briefing quality)
+
+**PR diff の準備**
+1. **BASE / HEAD**（または比較範囲）を明示。`git diff BASE..HEAD` が再現できること。
+2. **対象 SHA** を本文に書く（レビュアーが同じ範囲を読むため）。
+3. **diff の定義**: 「含む／含まない」（生成物、ロックファイルのみ等）を一行で宣言。
+4. **推定 LOC**（`git diff --stat` 相当）を書き、`est_loc` と整合させる。
+
+**Reviewer briefing（レビュアー向け説明）**
+5. **何を実装したか** をファイル名ベースで列挙（ストーリー1段落 + 箇条書き）。
+6. **計画・Issue・ADR** へのリンクまたは節番号。
+7. **リスク仮説**: セキュリティ・データ・パフォーマンスで不安がある箇所を `path` 付きで列挙。
+8. **見てほしい観点**: 並列時は `review-security` / `review-test` 等、スキル名単位でリクエスト。
+9. **環境**: 再現に必要な env・フィーチャーフラグ・シードデータ。
+10. **既知の妥協点** と理由（技術負債として明示）。
+11. **テスト実行結果** の要約（コマンド + 成否）。未実行なら UNVERIFIED と書く。
+12. **セキュリティ/UX の懸念** を作者側で先にメモ（ゼロなら「なし」と明示）。
+13. 並列レビュー時、各 `review-*` に **共通の重大度ラベル（Critical/High/Medium/Low）** と **review-summary / 本スキルの review-briefing** を要求する旨を依頼文に含める。
+14. レビュアーが **コードを読む順序**（エントリポイント）を提案。
+15. 外部依存（API・ステージング）が必要なら接続方法を記載。
+16. ロールバックやフィーチャーフラグの有無。
+17. スクリーンショットや録画が有効なら添付ポイントを指定。
+18. レビュー期限・優先度（ブロッカーか）を一文で。
+19. `code-reviewer.md` を使う場合でも、出力は各 `review-*` と **同一の構造化フォーマット** を要求する（旧 Important/Minor は使わない）。
+20. 依頼文に **質問のないレビュアー** が迷わないよう、曖昧語を排除。
+
+## Anti-Bias Guardrails
+
+1. Read the actual code/content FIRST. Do not output a verdict before reading.
+2. Every finding must cite file + line or plan section. No abstract prose.
+3. Cite evidence, not vibes. Phrases like "looks clean" / "seems fine" are forbidden — quote evidence or admit uncertainty.
+4. If you cannot verify, say "UNVERIFIED: [reason]" instead of assuming OK.
+5. Forbidden phrases when concluding: "probably fine", "seems good", "should work". Use verifiable assertions.
+6. Review length must be at least 20% of target length when target > 500 LOC, or ≥ target length when smaller.
+7. Do NOT grade above B if any rubric-triggering finding exists.
+8. End with the mandatory machine gate JSON block — DO NOT omit, DO NOT vary the keys.
+
+## Output Contract (Author → Reviewers)
+
+**総合評価の代わりに、依頼パケットとブリーフィングを出力する。** 見出し順は固定。
+
+## 依頼サマリ（1段落）
+- 目的・背景・マージ先ブランチ
+
+## 差分の定義
+- BASE: `<sha>` / HEAD: `<sha>`
+- 含む: … / 含まない: …
+
+## 実装ハイライト（file:line 粒度の箇条書き）
+- …
+
+## リスク・懸念（作者メモ）
+- [area] path/file — なぜ不安か
+
+## レビュー観点リクエスト（並列時はスキル名を列挙）
+- review-security: …
+- review-qa: …
+
+## 検証・環境
+- テスト: コマンド + 結果要約
+- 環境変数 / フラグ: …
+
+## review-briefing（機械可読・必須）
+
+```review-briefing
+{"scope": "...", "risk_areas": ["..."], "reviewers_needed": ["review-security", "review-backend"], "est_loc": 0}
+```
+
+## Scoring Rubric
+
+| Severity | Definition |
+|----------|-----------|
+| Critical | Ship-blocking: data loss, security breach, outage risk, legal violation |
+| High | Incorrect behavior affecting key user flow / KPI |
+| Medium | Quality, maintainability, minor performance |
+| Low | Style, nice-to-have, docs polish |
+
+Verdict decision tree:
+- ≥1 Critical → verdict "NO"
+- ≥2 High OR ≥6 total issues → verdict "NO"
+- 0 Critical, 0 High, ≤3 Medium → verdict "WITH EDITS"
+- 0 Critical, 0 High, 0 Medium → verdict "YES"
+
+Grade map:
+- A: 0 Critical, 0 High, 0 Medium
+- B: 0 Critical, 0 High, ≤3 Medium
+- C: ≥1 Critical OR ≥2 High OR ≥4 Medium
+- D: ≥2 Critical OR fundamental architectural issue
+
+## Common Pitfalls
+
+- 文脈なしの「見て」だけで終わる。
+- 範囲（BASE/HEAD）が不明でレビュアーが別 diff を読む。
+- 並列レビューで共通の重大度・出力形式を指定しない。
+- テスト結果を書かずに「動いてるはず」とする。
+- `est_loc` と実 diff の乖離。
+
+## Workflow (Codex)
+
+1. Read target → 2. Skim → 3. Deep-read（チェックリスト・証跡）→ 4. Cite → 5. Assemble → 6. Gate `review-briefing`。
+
+## Machine Gate
+
+依頼文の **最終** は次のフェンス（キー固定: `scope`, `risk_areas`, `reviewers_needed`, `est_loc`）。省略・改名禁止。
+
+```review-briefing
+{"scope": "feature X in checkout", "risk_areas": ["payments idempotency"], "reviewers_needed": ["review-security", "review-backend"], "est_loc": 1200}
+```
